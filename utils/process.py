@@ -3,23 +3,41 @@ import numpy as np
 
 
 def preprocessing(img, input_size, swap=(2, 0, 1)):
-    if len(img.shape) == 3:
-        padded_img = np.ones((input_size[0], input_size[1], 3), dtype=np.uint8) * 114
-    else:
-        padded_img = np.ones(input_size, dtype=np.uint8) * 114
+    # if len(img.shape) == 3:
+    #     padded_img = np.ones((input_size[0], input_size[1], 3), dtype=np.uint8) * 114
+    # else:
+    #     padded_img = np.ones(input_size, dtype=np.uint8) * 114
+
+    # r = min(input_size[0] / img.shape[0], input_size[1] / img.shape[1])
+    # resized_img = cv2.resize(
+    #     img,
+    #     (int(img.shape[1] * r), int(img.shape[0] * r)),
+    #     interpolation=cv2.INTER_LINEAR,
+    # ).astype(np.uint8)
+    # padded_img[: int(img.shape[0] * r), : int(img.shape[1] * r)] = resized_img
 
     r = min(input_size[0] / img.shape[0], input_size[1] / img.shape[1])
-    resized_img = cv2.resize(
-        img,
-        (int(img.shape[1] * r), int(img.shape[0] * r)),
-        interpolation=cv2.INTER_LINEAR,
-    ).astype(np.uint8)
-    padded_img[: int(img.shape[0] * r), : int(img.shape[1] * r)] = resized_img
+    new_w = int(img.shape[1] * r)
+    new_h = int(img.shape[0] * r)
 
-    padded_img = padded_img.transpose(swap)
-    padded_img = np.ascontiguousarray(padded_img, dtype=np.float32)
-    padded_img = np.expand_dims(padded_img, axis=0)
-    return padded_img, r
+    resized_img = cv2.resize(
+        img, (new_w, new_h), interpolation=cv2.INTER_LINEAR
+    ).astype(np.uint8)
+
+    if len(img.shape) == 3:
+        padded_img = np.ones((input_size[0], input_size[1], 3), dtype=np.uint8) * 0
+    else:
+        padded_img = np.ones(input_size, dtype=np.uint8) * 0
+
+    top = (input_size[0] - new_h) // 2
+    left = (input_size[1] - new_w) // 2
+
+    padded_img[top : top + new_h, left : left + new_w] = resized_img
+
+    input_image = padded_img.transpose(swap)
+    input_image = np.ascontiguousarray(input_image, dtype=np.float32)
+    input_image = np.expand_dims(input_image, axis=0)
+    return input_image, padded_img, r
 
 
 def filter_box(output, scale_range):
@@ -66,7 +84,7 @@ def nms_numpy(boxes, scores, iou_threshold):
 
 def postprocessing(results, rs):
     outs = postprocess(
-        results, num_classes=3, conf_thre=0.4, nms_thre=0.45, class_agnostic=False
+        results, num_classes=3, conf_thre=0.70, nms_thre=0.50, class_agnostic=False
     )
 
     if not isinstance(rs, list):
@@ -74,15 +92,15 @@ def postprocessing(results, rs):
 
     for i in range(min(len(rs), len(outs))):
         if outs[i] is not None:
-            print(f"Original outs[{i}] shape: {outs[i].shape}")
+            # print(f"Original outs[{i}] shape: {outs[i].shape}")
 
             if outs[i].ndim == 1:
                 num_elements = outs[i].shape[0]
                 if num_elements % 9 == 0:
                     outs[i] = outs[i].reshape(-1, 9)
-                    print(f"Reshaped outs[{i}] to: {outs[i].shape}")
+                    # print(f"Reshaped outs[{i}] to: {outs[i].shape}")
                 else:
-                    print(f"Skipping outs[{i}] — unexpected shape {outs[i].shape}")
+                    # print(f"Skipping outs[{i}] — unexpected shape {outs[i].shape}")
                     continue
 
             if outs[i].ndim == 2 and outs[i].shape[1] >= 4:
