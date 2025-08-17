@@ -231,7 +231,10 @@ class COCOEvaluator:
         # Evaluate the Dt (detection) json comparing with the ground truth
         if len(data_dict) > 0:
             cocoGt = self.dataloader.dataset.coco
-
+            # Ensure "info" exists in GT dataset
+            if "info" not in cocoGt.dataset:
+                logger.warning("'info' key missing in GT dataset — injecting empty info to avoid KeyError.")
+                cocoGt.dataset["info"] = {}
             if self.testdev:
                 json.dump(data_dict, open("./testdev_2017.json", "w"))
                 cocoDt = cocoGt.loadRes("./testdev_2017.json")
